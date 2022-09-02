@@ -1,10 +1,13 @@
 package goose
 
 import (
+	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"io/fs"
 	"strconv"
+	"time"
 )
 
 // Deprecated: VERSION will no longer be supported in v4.
@@ -37,16 +40,16 @@ func SetBaseFS(fsys fs.FS) {
 }
 
 // Run runs a goose command.
-func Run(command string, db *sql.DB, dir string, args ...string) error {
+func Run(command string, db db, dir string, args ...string) error {
 	return run(command, db, dir, args)
 }
 
 // Run runs a goose command with options.
-func RunWithOptions(command string, db *sql.DB, dir string, args []string, options ...OptionsFunc) error {
+func RunWithOptions(command string, db db, dir string, args []string, options ...OptionsFunc) error {
 	return run(command, db, dir, args, options...)
 }
 
-func run(command string, db *sql.DB, dir string, args []string, options ...OptionsFunc) error {
+func run(command string, db db, dir string, args []string, options ...OptionsFunc) error {
 	switch command {
 	case "up":
 		if err := Up(db, dir, options...); err != nil {
@@ -120,4 +123,27 @@ func run(command string, db *sql.DB, dir string, args []string, options ...Optio
 		return fmt.Errorf("%q: no such command", command)
 	}
 	return nil
+}
+
+type db interface {
+	PingContext(ctx context.Context) error
+	Ping() error
+	Close() error
+	SetMaxIdleConns(n int)
+	SetMaxOpenConns(n int)
+	SetConnMaxLifetime(d time.Duration)
+	SetConnMaxIdleTime(d time.Duration)
+	Stats() sql.DBStats
+	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
+	Prepare(query string) (*sql.Stmt, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	QueryRow(query string, args ...interface{}) *sql.Row
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
+	Begin() (*sql.Tx, error)
+	Driver() driver.Driver
+	Conn(ctx context.Context) (*sql.Conn, error)
 }
